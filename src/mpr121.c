@@ -58,7 +58,7 @@
 #define I2C_NUM I2C_NUM_0
 // #define I2C_NUM I2C_NUM_1
 
-#define I2C_MASTER_FREQ_HZ 400000 /*!< I2C master clock frequency. no higher than 1MHz for now */
+#define I2C_MASTER_FREQ_HZ 800000 /*!< I2C master clock frequency. no higher than 1MHz for now */
 
 static const char *TAG = "MPR121";
 
@@ -165,7 +165,7 @@ uint8_t MPR121_getRegister(MPR121_t *dev, uint8_t reg)
 	i2c_master_read(cmd, buf, 1, I2C_MASTER_NACK);
 
 	i2c_master_stop(cmd);
-	esp_err_t espRc = i2c_master_cmd_begin(I2C_NUM, cmd, 10 / portTICK_PERIOD_MS);
+	esp_err_t espRc = i2c_master_cmd_begin(I2C_NUM, cmd, 50 / portTICK_PERIOD_MS);
 	if (espRc == ESP_OK)
 	{
 		dev->error &= ~(1 << ADDRESS_UNKNOWN_BIT);
