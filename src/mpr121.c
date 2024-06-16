@@ -58,7 +58,7 @@
 #define I2C_NUM I2C_NUM_0
 // #define I2C_NUM I2C_NUM_1
 
-#define I2C_MASTER_FREQ_HZ 100000 /*!< I2C master clock frequency. no higher than 1MHz for now */
+#define I2C_MASTER_FREQ_HZ 400000 /*!< I2C master clock frequency. no higher than 1MHz for now */
 
 static const char *TAG = "MPR121";
 
@@ -117,7 +117,7 @@ void MPR121_setRegister(MPR121_t *dev, uint8_t reg, uint8_t value)
 	i2c_master_write_byte(cmd, reg, true);
 	i2c_master_write_byte(cmd, value, true);
 	i2c_master_stop(cmd);
-	esp_err_t espRc = i2c_master_cmd_begin(I2C_NUM, cmd, 10 / portTICK_PERIOD_MS);
+	esp_err_t espRc = i2c_master_cmd_begin(I2C_NUM, cmd, 250 / portTICK_PERIOD_MS);
 	if (espRc == ESP_OK)
 	{
 		ESP_LOGD(TAG, "setRegister reg=0x%02x value=0x%02x successfully", reg, value);
@@ -249,6 +249,86 @@ bool MPR121_begin(MPR121_t *dev, int16_t address, int16_t touchThreshold, int16_
 		.master.clk_speed = I2C_MASTER_FREQ_HZ};
 	ESP_ERROR_CHECK(i2c_param_config(I2C_NUM, &i2c_config));
 	ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM, I2C_MODE_MASTER, 0, 0, 0));
+
+	// addresses only valid 0x5A to 0x5D - if we don't change the address it stays at default
+	if (address >= 0x5A && address <= 0x5D)
+	{
+		dev->address = address; // need to be specific here
+	}
+
+	dev->error &= ~(1 << NOT_INITED_BIT); // clear NOT_INITED error flag
+
+	if (MPR121_reset(dev))
+	{
+		// default values...
+		// MPR121_applySettings(dev, dev->defaultSettings );
+		MPR121_settingsType(&(dev->defaultSettings));
+		MPR121_applySettings(dev);
+
+		// only apply thresholds if they differ from existing defaults
+		if (touchThreshold != dev->defaultSettings._TTHRESH)
+		{
+			MPR121_setTouchThresholdAll(dev, touchThreshold);
+		}
+
+		if (releaseThreshold != dev->defaultSettings._RTHRESH)
+		{
+			MPR121_setReleaseThresholdAll(dev, releaseThreshold);
+		}
+
+		if (interruptPin != dev->defaultSettings._INTERRUPT)
+		{
+			MPR121_setInterruptPin(dev, interruptPin);
+		}
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool MPR121_begin_without_init(MPR121_t *dev, int16_t address, int16_t touchThreshold, int16_t releaseThreshold, int16_t interruptPin, int16_t sda, int16_t scl)
+{
+
+	// SDA and SCL should idle high, but MPR121 can get stuck waiting to complete a transaction
+	// this code detects this state and releases us from it
+
+#if 0
+	//boolean stuck_transaction = false;
+	bool stuck_transaction = false;
+	uint8_t stuck_transaction_retry_count = 0;
+	const uint8_t stuck_transaction_retry_MAX = 10;
+
+	::pinMode( PIN_WIRE_SDA, INPUT_PULLUP );
+	::pinMode( PIN_WIRE_SCL, INPUT_PULLUP );
+
+	do{
+		if(( ::digitalRead( PIN_WIRE_SDA ) == LOW ) && ( ::digitalRead( PIN_WIRE_SCL ) == HIGH )){
+			Serial.println("MPR121_begin stuck_transaction = true");
+			stuck_transaction = true;
+			::pinMode( PIN_WIRE_SCL, OUTPUT );
+			::digitalWrite( PIN_WIRE_SCL, LOW );
+			delay( 1 ); // this is way longer than required (would be 1.25us at 400kHz) but err on side of caution
+			::pinMode( PIN_WIRE_SCL, INPUT_PULLUP );
+			stuck_transaction_retry_count++;
+		} else {
+			Serial.println("MPR121_begin stuck_transaction = false");
+			stuck_transaction = false;
+		}
+	} while ( stuck_transaction && ( stuck_transaction_retry_count < stuck_transaction_retry_MAX ));
+
+	// TODO: add new error code that can be handled externally
+	if( stuck_transaction_retry_count > 0){
+		if( stuck_transaction ){
+		} else {
+		}
+	}
+
+	// now we've released (if necessary) we can get on with things
+	Wire.begin();
+#endif
 
 	// addresses only valid 0x5A to 0x5D - if we don't change the address it stays at default
 	if (address >= 0x5A && address <= 0x5D)
