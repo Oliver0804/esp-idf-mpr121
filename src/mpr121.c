@@ -933,7 +933,16 @@ bool MPR121_touchStatusChanged(MPR121_t *dev)
 {
 	// :: here forces the compiler to use Arduino's digitalRead, not MPR121's
 	// return(dev->autoTouchStatusFlag || (!::digitalRead(dev->interruptPin)));
-	return (dev->autoTouchStatusFlag || (!gpio_get_level(dev->interruptPin)));
+	bool interrupt_triggered = !gpio_get_level(dev->interruptPin);
+	bool status_changed = dev->autoTouchStatusFlag || interrupt_triggered;
+	
+	// 如果檢測到外部中斷觸發，打印日誌
+	if (interrupt_triggered) {
+		ESP_LOGI(TAG, "MPR121 外部中斷觸發! IRQ Pin=%d, Level=%d", 
+				 dev->interruptPin, gpio_get_level(dev->interruptPin));
+	}
+	
+	return status_changed;
 }
 
 // void MPR121_setProxMode(MPR121_t * dev, mpr121_proxmode_type mode){
@@ -1121,13 +1130,18 @@ bool MPR121_autoSetElectrodes(MPR121_t *dev, uint16_t VCC_mV, bool fixedChargeTi
 
 	MPR121_stop(dev);
 
-	MPR121_setRegister(dev, MPR121_USL, USL);
-	MPR121_setRegister(dev, MPR121_TL, T_L);
-	MPR121_setRegister(dev, MPR121_LSL, LSL);
+	// MPR121_setRegister(dev, MPR121_USL, USL);
+	// MPR121_setRegister(dev, MPR121_TL, T_L);
+	// MPR121_setRegister(dev, MPR121_LSL, LSL);
+
+	MPR121_setRegister(dev, MPR121_USL, 200);
+	MPR121_setRegister(dev, MPR121_TL, 180);
+	MPR121_setRegister(dev, MPR121_LSL, 130);
 
 	// don't enable retry, copy other settings from elsewhere
-	MPR121_setRegister(dev, MPR121_ACCR0, 1 | ((dev->ECR_backup & 0xC0) >> 4) | (MPR121_getRegister(dev, MPR121_AFE1) & 0xC0));
-	// fixed charge time is useful for designs with higher lead-in resistance - e.g. using Bare Electric Paint
+	MPR121_setRegister(dev, MPR121_ACCR0, 0xCB);
+	// MPR121_setRegister(dev, MPR121_ACCR0, 1 | ((dev->ECR_backup & 0xC0) >> 4) | (MPR121_getRegister(dev, MPR121_AFE1) & 0xC0));
+	//     fixed charge time is useful for designs with higher lead-in resistance - e.g. using Bare Electric Paint
 	MPR121_setRegister(dev, MPR121_ACCR1, fixedChargeTime ? 1 << 7 : 0);
 
 	if (wasRunning)
