@@ -1123,9 +1123,9 @@ bool MPR121_autoSetElectrodeCDCAll(MPR121_t *dev)
 
 bool MPR121_autoSetElectrodes(MPR121_t *dev, uint16_t VCC_mV, bool fixedChargeTime)
 {
-	uint8_t USL = (uint8_t)((((uint32_t)VCC_mV - 700) * 256) / VCC_mV);
-	uint8_t T_L = (uint8_t)(((uint16_t)USL * 90) / 100);
-	uint8_t LSL = (uint8_t)(((uint16_t)USL * 65) / 100);
+	// uint8_t USL = (uint8_t)((((uint32_t)VCC_mV - 700) * 256) / VCC_mV);  // 未使用，已被固定值取代
+	// uint8_t T_L = (uint8_t)(((uint16_t)USL * 90) / 100);  // 未使用，已被固定值取代
+	// uint8_t LSL = (uint8_t)(((uint16_t)USL * 65) / 100);  // 未使用，已被固定值取代
 	bool wasRunning = dev->running;
 
 	MPR121_stop(dev);
